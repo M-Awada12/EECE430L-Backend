@@ -34,3 +34,17 @@ def createtransaction():
     db.session.commit()
     return jsonify(serialize_transaction(transaction))
 
+
+@app.route("/exchangeRate", methods=['GET'])
+def ExchangeRate():
+    filtered_transactions = db.session.query(Transaction).filter(Transaction.usd_to_lbp == 0)
+    average_lbp_amount = sum(t.lbp_amount for t in filtered_transactions) / filtered_transactions.count()
+    filtered_transactions2 = db.session.query(Transaction).filter(Transaction.usd_to_lbp == 1)
+    average_usd_amount= sum(t.usd_amount for t in filtered_transactions2) / filtered_transactions.count()
+
+    response = {
+        "usd_to_lbp": average_usd_amount,
+        "lbp_to_usd": average_lbp_amount
+    }
+
+    return jsonify(response)
