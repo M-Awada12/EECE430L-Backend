@@ -1,8 +1,10 @@
 from flask import Flask, request, jsonify
 from flask_sqlalchemy import SQLAlchemy
+from flask_cors import CORS
 
 app = Flask(__name__)
 app.config['SQLALCHEMY_DATABASE_URI'] = 'mysql+pymysql://root:kali@localhost:3306/exchange'
+CORS(app)
 db = SQLAlchemy(app)
 
 
@@ -37,7 +39,7 @@ def create_transaction():
     return jsonify(serialize_transaction(new_transaction))
 
 
-@app.route("/exchangeRate", methods=['GET'])
+@app.route("/exchangeRate", methods=['GET', 'POST'])
 def exchange_rate():
     filtered_transactions = db.session.query(Transaction).filter(Transaction.usd_to_lbp == 0)
     average_lbp_amount = sum(t.lbp_amount for t in filtered_transactions) / filtered_transactions.count()
