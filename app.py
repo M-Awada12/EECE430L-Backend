@@ -1,13 +1,13 @@
 from flask import Flask, request, jsonify
 from flask_sqlalchemy import SQLAlchemy
 from flask_cors import CORS
+from flask_marshmallow import Marshmallow
 
 app = Flask(__name__)
 app.config['SQLALCHEMY_DATABASE_URI'] = 'mysql+pymysql://root:kali@localhost:3306/exchange'
 CORS(app)
 db = SQLAlchemy(app)
-
-
+ma = Marshmallow(app)
 class Transaction(db.Model):
     __tablename__ = 'Transaction'
     id = db.Column(db.Integer, primary_key=True, unique=True)
@@ -19,6 +19,14 @@ class Transaction(db.Model):
         self.usd_amount = usd_amount
         self.lbp_amount = lbp_amount
         self.usd_to_lbp = usd_to_lbp
+
+class TransactionSchema(ma.Schema):
+    class Meta:
+        fields = ("id", "usd_amount", "lbp_amount", "usd_to_lbp")
+        model = Transaction
+
+transaction_schema = TransactionSchema()
+
 
 
 def serialize_transaction(transaction):
@@ -36,7 +44,7 @@ def create_transaction():
     new_transaction = Transaction(body['usd_amount'], body['lbp_amount'], body['usd_to_lbp'])
     db.session.add(new_transaction)
     db.session.commit()
-    return jsonify(serialize_transaction(new_transaction))
+    return jsonify(transaction_schema.dump(new_transaction))
 
 
 @app.route("/exchangeRate", methods=['GET', 'POST'])
