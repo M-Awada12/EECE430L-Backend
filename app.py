@@ -1,8 +1,10 @@
-from flask import Flask, request, jsonify
+from datetime import datetime
+from flask import Flask, request, jsonify, abort
 from flask_sqlalchemy import SQLAlchemy
 from flask_cors import CORS
 from flask_marshmallow import Marshmallow
 from flask_bcrypt import Bcrypt
+import jwt
 
 app = Flask(__name__)
 app.config['SQLALCHEMY_DATABASE_URI'] = 'mysql+pymysql://root:kali@localhost:3306/exchange'
@@ -10,6 +12,9 @@ CORS(app)
 db = SQLAlchemy(app)
 ma = Marshmallow(app)
 bcrypt = Bcrypt(app)
+
+SECRET_KEY = "b'|\xe7\xbfU3`\xc4\xec\xa7\xa9zf:}\xb5\xc7\xb9\x139^3@Dv'"
+
 class Transaction(db.Model):
     __tablename__ = 'Transaction'
     id = db.Column(db.Integer, primary_key=True, unique=True)
@@ -47,15 +52,51 @@ class UserSchema(ma.Schema):
 
 user_schema = UserSchema()
 
+def create_token(user_id):
+    payload = {
+        'exp': datetime.datetime.utcnow() + datetime.timedelta(days=4),
+        'iat': datetime.datetime.utcnow(),
+        'sub': user_id
+    }
+    return jwt.encode(
+        payload,
+        SECRET_KEY,
+        algorithm='HS256'
+    )
+
 
 @app.route('/user', methods=['POST'])
 def create_user():
-    body = request.get_json()
-    new_user = User(body['user_name'], body['password'])
+    user_name = request.json.get('user_name')
+    password = request.json.get('password')
+
+    if not user_name or not password:
+        abort(400)
+
+    hashed_password = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt())
+
+    new_user = User(user_name=user_name, hashed_password=hashed_password)
     db.session.add(new_user)
     db.session.commit()
-    return jsonify(user_schema.dump(new_user))
 
+    return jsonify({'message': 'User created successfully'}), 201
+
+@app.route('/auth', methods=['POST'])
+def authenticate_user():
+    user_name = request.json.get('user_name')
+    password = request.json.get('password')
+
+    if not user_name or not password:
+        abort(400)
+
+    user = User.query.filter_by(user_name=user_name).first()
+
+    if not user or not bcrypt.checkpw(password.encode('utf-8'), user.hashed_password):
+        abort(403)
+
+    token = create_token(user.id)
+
+    return jsonify({'token': token.decode('utf-8')}), 200
 
 
 
