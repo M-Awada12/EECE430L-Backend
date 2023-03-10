@@ -134,13 +134,31 @@ def create_transaction():
 
     return jsonify(transaction_schema.dump(new_transaction))
 
-
 @app.route("/exchangeRate", methods=['GET', 'POST'])
 def exchange_rate():
-    filtered_transactions = db.session.query(Transaction).filter(Transaction.usd_to_lbp == 0)
-    average_lbp_amount = sum(t.lbp_amount for t in filtered_transactions) / filtered_transactions.count()
-    filtered_transactions2 = db.session.query(Transaction).filter(Transaction.usd_to_lbp == 1)
-    average_usd_amount= sum(t.usd_amount for t in filtered_transactions2) / filtered_transactions.count()
+    current_time = datetime.datetime.now()
+    start_time = current_time - datetime.timedelta(hours=72) # 3 days ago
+    filtered_transactions = db.session.query(Transaction).filter(
+        Transaction.added_date.between(start_time, current_time),
+        Transaction.usd_to_lbp == 0
+    )
+    filtered_transactions2 = db.session.query(Transaction).filter(
+        Transaction.added_date.between(start_time, current_time),
+        Transaction.usd_to_lbp == 1
+    )
+
+    total_lbp_amount = sum(t.lbp_amount for t in filtered_transactions)
+    total_usd_amount = sum(t.usd_amount for t in filtered_transactions2)
+
+    if filtered_transactions.count() > 0:
+        average_lbp_amount = total_lbp_amount / filtered_transactions.count()
+    else:
+        average_lbp_amount = 0
+
+    if filtered_transactions2.count() > 0:
+        average_usd_amount = total_usd_amount / filtered_transactions2.count()
+    else:
+        average_usd_amount = 0
 
     response = {
         "usd_to_lbp": average_usd_amount,
@@ -148,6 +166,7 @@ def exchange_rate():
     }
 
     return jsonify(response)
+
 
 @app.route('/transaction', methods=['GET'])
 def get_transactions():
@@ -160,5 +179,3 @@ def get_transactions():
         abort(403)
     transactions = Transaction.query.filter_by(user_id=user_id).all()
     return jsonify(transaction_schema.dump(transactions)), 200
-
-transactions_schema = TransactionSchema(many=True)
