@@ -1,0 +1,1 @@
+DB_CONFIG = 'mysql+pymysql://root:kali@localhost:3306/exchange'
